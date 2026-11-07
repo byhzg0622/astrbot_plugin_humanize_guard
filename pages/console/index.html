@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人味守卫 · 质检面板</title>
+<style>
+  :root { --bg:#14161a; --card:#1c1f26; --card2:#232733; --line:#2e3340; --fg:#e6e9ef; --dim:#98a1b3;
+          --accent:#4f8cff; --ok:#3fb96f; --bad:#e5534b; --warn:#d9a441; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.65 "Microsoft YaHei","PingFang SC",system-ui,sans-serif; }
+  header { padding:20px 24px 8px; }
+  header h1 { margin:0; font-size:20px; }
+  header .flow { margin:6px 0 0; color:var(--dim); font-size:12.5px; }
+  nav.tabs { display:flex; gap:6px; padding:14px 24px 0; flex-wrap:wrap; }
+  nav.tabs button { background:transparent; color:var(--dim); border:1px solid transparent;
+    padding:7px 16px; border-radius:8px 8px 0 0; cursor:pointer; font-size:14px; }
+  nav.tabs button.active { background:var(--card); color:var(--fg); border-color:var(--line); border-bottom-color:var(--card); }
+  main { padding:0 24px 40px; }
+  .tab { display:none; background:var(--card); border:1px solid var(--line); border-radius:0 10px 10px 10px; padding:18px; }
+  .tab.active { display:block; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .card { background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .card h3 { margin:0 0 8px; font-size:13px; color:var(--dim); font-weight:600; }
+  .kv { display:flex; justify-content:space-between; padding:3px 0; font-size:13px; }
+  .kv span:last-child { color:var(--fg); }
+  .kv span:first-child { color:var(--dim); }
+  .big { font-size:22px; font-weight:700; }
+  .badge { display:inline-block; font-size:11px; border-radius:20px; padding:1px 9px; margin-left:6px; vertical-align:1px; }
+  .badge.rule { background:#24405f; color:#8fbaff; }
+  .badge.judge { background:#4a3a17; color:#f2c569; }
+  .badge.soft { background:#2b3040; color:#aab3c5; }
+  .badge.custom { background:#1f4a33; color:#7fd6a4; }
+  .item { margin-bottom:10px; padding:10px 14px; }
+  .row { display:flex; align-items:center; gap:8px; }
+  .row .name { font-weight:600; }
+  .grow { flex:1; }
+  .editor { margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; }
+  label.ck input { width:17px; height:17px; accent-color:var(--accent); cursor:pointer; }
+  .field { margin:8px 0; }
+  .field label { display:block; font-size:12px; color:var(--dim); margin-bottom:4px; }
+  input[type=text], input[type=number], textarea, select {
+    width:100%; background:#15171d; color:var(--fg); border:1px solid var(--line);
+    border-radius:7px; padding:7px 9px; font-size:13px; font-family:inherit; }
+  textarea { min-height:74px; resize:vertical; }
+  textarea.mono { font-family:Consolas,monospace; font-size:12.5px; }
+  .hint { font-size:12px; color:var(--dim); margin:4px 0; }
+  button.primary { background:var(--accent); border:0; color:#fff; padding:7px 16px; border-radius:7px; cursor:pointer; font-size:13px; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--dim); padding:5px 12px; border-radius:7px; cursor:pointer; font-size:12.5px; }
+  button.danger { background:#5a2320; border:1px solid #7a302b; color:#ff9d95; padding:5px 12px; border-radius:7px; cursor:pointer; font-size:12.5px; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .btns { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .sec { margin-bottom:18px; }
+  .sec h2 { font-size:15px; margin:0 0 10px; }
+  .log-item { border-left:3px solid var(--warn); }
+  .log-item.rewrite { border-left-color:var(--ok); }
+  .log-item.give_up { border-left-color:var(--bad); }
+  .log-item.local { border-left-color:var(--accent, #3b82f6); }
+  .mono { font-family:Consolas,monospace; }
+  .viol { color:var(--bad); font-size:13px; margin:3px 0; }
+  .pass { color:var(--ok); font-weight:600; }
+  details { margin-top:8px; }
+  summary { cursor:pointer; color:var(--dim); font-size:12.5px; }
+  pre { background:#15171d; border:1px solid var(--line); border-radius:8px; padding:10px;
+        white-space:pre-wrap; word-break:break-all; font-size:12.5px; max-height:340px; overflow:auto; }
+  #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+    background:#000c; color:#fff; padding:9px 18px; border-radius:8px; opacity:0; pointer-events:none;
+    transition:.2s; font-size:13px; z-index:9; max-width:80%; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #api-status { color:var(--bad); font-size:12.5px; margin-top:8px; display:none; }
+  .inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .inline input { max-width:420px; }
+  table.hist { width:100%; border-collapse:collapse; font-size:13px; }
+  table.hist td, table.hist th { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡 人味守卫 · 质检面板</h1>
+  <p class="flow">命中检测项 → 打回 → 注入对应提示词改写 → 复检（只对比上一句，不看改写前草稿）→ 发出</p>
+  <div id="api-status"></div>
+</header>
+<nav class="tabs">
+  <button data-tab="overview" class="active">概览</button>
+  <button data-tab="items">检测项</button>
+  <button data-tab="settings">设置</button>
+  <button data-tab="logs">日志</button>
+  <button data-tab="test">试跑</button>
+</nav>
+<main>
+
+  <section id="tab-overview" class="tab active">
+    <div class="grid" id="status-grid"></div>
+    <div class="sec" style="margin-top:16px">
+      <h2>会话历史（重合 / 开头结尾的比对基准）</h2>
+      <div class="inline">
+        <input type="text" id="hist-umo" placeholder="会话 ID（unified_msg_origin），例如 aiocqhttp:GroupMessage:123">
+        <button class="ghost" id="hist-go">查询</button>
+      </div>
+      <div id="hist-result" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section id="tab-items" class="tab">
+    <div class="sec">
+      <div class="inline" style="justify-content:space-between">
+        <h2 style="margin:0">检测项（勾选决定参与检测，也决定注入词拼装）</h2>
+        <div class="btns" style="margin:0">
+          <button class="ghost" id="btn-preview">预览注入词</button>
+          <button class="ghost" id="btn-reset">内置项恢复默认</button>
+        </div>
+      </div>
+      <div id="preview-box" style="display:none;margin-top:10px">
+        <div class="hint" id="preview-title"></div>
+        <pre id="preview-text"></pre>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>新建检测项（自动生成注入词，随后可改）</h2>
+      <div class="field"><label>名称 *</label><input type="text" id="new-name" placeholder="例如：句尾带英文逗号"></div>
+      <div class="field"><label>判定说明（自动生成注入词的依据）</label>
+        <textarea id="new-desc" placeholder="例如：消息最后一个字符是英文逗号"></textarea></div>
+      <div class="btns"><button class="primary" id="btn-add">创建</button></div>
+    </div>
+    <div id="items-list"></div>
+  </section>
+
+  <section id="tab-settings" class="tab">
+    <div id="settings-body"></div>
+    <div class="btns"><button class="primary" id="btn-save-settings">保存设置</button></div>
+  </section>
+
+  <section id="tab-logs" class="tab">
+    <div class="sec inline" style="justify-content:space-between">
+      <h2 style="margin:0">打回日志</h2>
+      <button class="danger" id="btn-clear-logs">清空日志</button>
+    </div>
+    <div id="logs-list"></div>
+  </section>
+
+  <section id="tab-test" class="tab">
+    <div class="field">
+      <label>把一段文本丢进检测流水线（不会发送任何消息）</label>
+      <textarea id="test-input" rows="4" placeholder="例如：希望这能帮到你！"></textarea>
+    </div>
+    <div class="btns">
+      <button class="primary" id="btn-detect">检测</button>
+      <button class="ghost" id="btn-rewrite">检测并试改写</button>
+    </div>
+    <div id="test-result" style="margin-top:12px"></div>
+  </section>
+
+</main>
+<div id="toast"></div>
+
+<script src="/api/plugin/page/bridge-sdk.js"></script>
+<script>
+(function () {
+  "use strict";
+  var PLUGIN = "astrbot_plugin_humanize_guard";
+
+  // 页面跑在不透明源沙箱 iframe 里，自己 fetch 会被判跨域，首选宿主注入的桥。
+  // 桥的端点前缀各版本不一致，逐个探测（与本工作区已上线面板同一套机制）。
+  var PREFIXES = [
+    "", PLUGIN + "/", "dsh/" + PLUGIN + "/",
+    "/api/plug/" + PLUGIN + "/", "/plugins/extensions/" + PLUGIN + "/",
+    "/api/plugins/extensions/" + PLUGIN + "/", "/plug/" + PLUGIN + "/"
+  ];
+  var resolved = null, apiBroken = false, failureSummary = "";
+  var state = { status: null, items: [], settings: null, logs: [] };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg;
+    el.className = "show";
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.className = ""; }, 2400);
+  }
+  function fail(err) {
+    var msg = String((err && err.message) || err);
+    toast("出错：" + msg);
+    var el = $("api-status");
+    if (el) { el.textContent = "接口异常：" + msg; el.style.display = "block"; }
+  }
+  function unwrap(res) {
+    if (res && typeof res === "object") {
+      if (res.status === "error") { throw new Error(res.message || "接口返回错误"); }
+      if (res.status === "ok" && ("data" in res)) { return res.data; }
+    }
+    return res;
+  }
+
+  function viaBridge(prefix, path, method, body, query) {
+    var bridge = window.AstrBotPluginPage;
+    if (!bridge || typeof bridge.apiGet !== "function") {
+      return Promise.reject(new Error("宿主没有注入桥"));
+    }
+    // 查询参数必须走 apiGet 第二个参数，绝不能拼进 endpoint（宿主会判非法）
+    var call = (method === "GET")
+      ? bridge.apiGet(prefix + path, query || {})
+      : bridge.apiPost(prefix + path, body || {});
+    return Promise.resolve(call);
+  }
+  function viaFetch(prefix, path, method, body, query) {
+    var origin = window.location.origin;
+    if (!origin || origin === "null") { return Promise.reject(new Error("不透明源")); }
+    var suffix = prefix
+      ? (prefix.charAt(0) === "/" ? prefix : "/" + prefix)
+      : "/api/plug/" + PLUGIN + "/";
+    var url = origin + suffix + path;
+    var pairs = [];
+    if (query) {
+      Object.keys(query).forEach(function (key) {
+        var value = query[key];
+        if (value === undefined || value === null || value === "") { return; }
+        pairs.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+      });
+    }
+    if (pairs.length) { url += "?" + pairs.join("&"); }
+    return fetch(url, {
+      method: method || "GET",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      if (!r.ok) { throw new Error("HTTP " + r.status); }
+      return r.json();
+    });
+  }
+  function attempt(combo, path, method, body, query) {
+    var fn = combo.transport === "bridge" ? viaBridge : viaFetch;
+    return Promise.resolve().then(function () {
+      return fn(combo.prefix, path, method, body, query);
+    }).then(unwrap);
+  }
+  function request(path, method, body, query) {
+    if (resolved) { return attempt(resolved, path, method || "GET", body, query); }
+    if (apiBroken) { return Promise.reject(new Error(failureSummary || "接口不通")); }
+    var combos = [];
+    PREFIXES.forEach(function (prefix) {
+      combos.push({ prefix: prefix, transport: "bridge" });
+      combos.push({ prefix: prefix, transport: "fetch" });
+    });
+    var index = 0, log = [];
+    function probe() {
+      if (index >= combos.length) {
+        apiBroken = true;
+        failureSummary = log.slice(0, 4).join(" ｜ ");
+        var el = $("api-status");
+        if (el) { el.textContent = "接口不通 —— " + failureSummary; el.style.display = "block"; }
+        return Promise.reject(new Error("接口不通：" + failureSummary));
+      }
+      var combo = combos[index++];
+      return attempt(combo, path, method || "GET", body, query).then(function (data) {
+        resolved = combo;
+        var el = $("api-status");
+        if (el) { el.style.display = "none"; }
+        return data;
+      }, function (err) {
+        log.push(combo.transport + "|" + (combo.prefix || "(空)") + ":" +
+          String((err && err.message) || err).slice(0, 50));
+        return probe();
+      });
+    }
+    return probe();
+  }
+
+  // ------------------------------------------------------------------
+  // 页签
+  // ------------------------------------------------------------------
+  Array.prototype.forEach.call(document.querySelectorAll("nav.tabs button"), function (btn) {
+    btn.addEventListener("click", function () {
+      Array.prototype.forEach.call(document.querySelectorAll("nav.tabs button"), function (b) {
+        b.className = "";
+      });
+      btn.className = "active";
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+        t.className = "tab";
+      });
+      $("tab-" + btn.getAttribute("data-tab")).className = "tab active";
+      if (btn.getAttribute("data-tab") === "logs") { loadLogs(); }
+      if (btn.getAttribute("data-tab") === "settings") { loadSettings(); }
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 概览
+  // ------------------------------------------------------------------
+  function kv(label, value) {
+    return '<div class="kv"><span>' + esc(label) + "</span><span>" + value + "</span></div>";
+  }
+  function renderStatus(s) {
+    var items = s.items || {}, hist = s.history || {}, log = s.log || {};
+    var html = "";
+    html += '<div class="card"><h3>开关</h3>'
+      + kv("总开关", s.enabled ? '<span class="pass">开</span>' : '<span class="viol">关</span>')
+      + kv("规则层", s.detect_rules ? "开" : "关")
+      + kv("AI 检测层", s.detect_judge ? "开" : "关")
+      + kv("体检模式", s.dry_run ? "开（只记不改）" : "关")
+      + "</div>";
+    html += '<div class="card"><h3>检测项</h3>'
+      + '<div class="big">' + items.enabled + " / " + items.total + "</div>"
+      + kv("AI 注入词项", items.judge_enabled)
+      + kv("自定义项", items.custom)
+      + "</div>";
+    html += '<div class="card"><h3>打回改写</h3>'
+      + kv("最多轮数", s.max_rounds)
+      + kv("单次超时", s.timeout + "s")
+      + kv("模型", s.model_mode === "custom" ? (s.provider_id || "指定(空)") : "跟随会话")
+      + "</div>";
+    html += '<div class="card"><h3>运行数据</h3>'
+      + kv("历史会话", hist.sessions + " 个（近 " + hist.keep_k + " 条）")
+      + kv("打回日志", log.total + " 条")
+      + kv("下轮反馈待注入", s.feedback_pending)
+      + "</div>";
+    html += '<div class="card"><h3>黑白名单</h3>'
+      + kv("黑名单（免检）", (s.blacklist || 0) + " 个")
+      + kv("白名单模式", s.whitelist_mode
+          ? '<span class="pass">开：只检名单内</span>' : "关：除黑名单外全检")
+      + kv("白名单（质检名单）", (s.whitelist || 0) + " 个")
+      + '<div class="hint">条目可填会话 ID、群号/QQ号或发送者 ID；黑名单优先。名单在“设置 › 黑白名单”里改。</div>'
+      + "</div>";
+    html += '<div class="card"><h3>下轮反馈注入</h3>'
+      + kv("状态", s.feedback ? '<span class="pass">开</span>' : "关")
+      + '<div class="hint">本轮被打回后，下一次请求会附一句原因，让模型自己越说越像人。</div>'
+      + "</div>";
+    html += '<div class="card"><h3>版本</h3><div class="big">' + esc(s.version || "-") + "</div>"
+      + '<div class="hint">数据：items / history / log 三个文件</div></div>';
+    $("status-grid").innerHTML = html;
+  }
+  function loadStatus() {
+    request("status", "GET").then(function (data) {
+      state.status = data;
+      renderStatus(data);
+    }).catch(fail);
+  }
+  $("hist-go").addEventListener("click", function () {
+    var umo = $("hist-umo").value.trim();
+    if (!umo) { toast("先填会话 ID"); return; }
+    request("history", "GET", null, { umo: umo }).then(function (data) {
+      var rows = "";
+      rows += '<tr><th>上一句（机器人）</th><td>' + esc(data.prev || "（还没有）") + "</td></tr>";
+      rows += '<tr><th>用户上一条</th><td>' + esc(data.user_prev || "（无）") + "</td></tr>";
+      var recent = data.recent || [];
+      rows += '<tr><th>最近 ' + recent.length + ' 条</th><td>'
+        + (recent.length
+            ? recent.map(function (r, i) { return (i + 1) + ". " + esc(r); }).join("<br>")
+            : "（空）")
+        + "</td></tr>";
+      $("hist-result").innerHTML = '<table class="hist">' + rows + "</table>";
+    }).catch(fail);
+  });
+
+  // ------------------------------------------------------------------
+  // 检测项
+  // ------------------------------------------------------------------
+  function engineBadge(item) {
+    return item.engine === "rule"
+      ? '<span class="badge rule">规则</span>'
+      : '<span class="badge judge">AI</span>';
+  }
+  function paramFieldsHtml(item) {
+    var schema = item.param_schema || [];
+    if (!schema.length) { return ""; }
+    var html = '<div class="field"><label>阈值参数</label></div>';
+    schema.forEach(function (p) {
+      var id = "param-" + item.id + "-" + p.key;
+      var value = (item.params || {})[p.key];
+      if (value === undefined || value === null) { value = p.default; }
+      if (p.type === "lines") {
+        var lines = Array.isArray(value) ? value.join("\n") : String(value == null ? "" : value);
+        html += '<div class="field"><label>' + esc(p.label) + '</label>'
+          + '<textarea data-pkey="' + esc(p.key) + '" data-ptype="lines" data-iid="' + esc(item.id) + '"'
+          + ' id="' + esc(id) + '" rows="3">' + esc(lines) + "</textarea></div>";
+      } else if (p.type === "int" || p.type === "float") {
+        html += '<div class="field"><label>' + esc(p.label) + '</label>'
+          + '<input type="number" data-pkey="' + esc(p.key) + '" data-ptype="' + esc(p.type) + '"'
+          + ' data-iid="' + esc(item.id) + '" id="' + esc(id) + '" value="' + esc(value) + '"></div>';
+      } else {
+        html += '<div class="field"><label>' + esc(p.label) + '</label>'
+          + '<input type="text" data-pkey="' + esc(p.key) + '" data-ptype="text"'
+          + ' data-iid="' + esc(item.id) + '" id="' + esc(id) + '" value="' + esc(value) + '"></div>';
+      }
+    });
+    return html;
+  }
+  function renderItems() {
+    var html = "";
+    state.items.forEach(function (it) {
+      html += '<div class="card item" data-id="' + esc(it.id) + '">'
+        + '<div class="row">'
+        + '<label class="ck"><input type="checkbox" class="item-ck" data-id="' + esc(it.id) + '"'
+        + (it.enabled ? " checked" : "") + "></label>"
+        + '<span class="name">' + esc(it.name) + "</span>"
+        + engineBadge(it)
+        + (it.builtin ? '<span class="badge soft">内置</span>' : '<span class="badge custom">自定义</span>')
+        + '<span class="grow"></span>'
+        + '<button class="ghost btn-toggle">编辑</button>'
+        + "</div>"
+        + '<div class="editor" style="display:none">'
+        + '<p class="hint">判定说明：' + esc(it.desc || "（无）") + "</p>"
+        + paramFieldsHtml(it)
+        + '<div class="field"><label>检测模型注入词（勾选后进入检测提示词；勾选变化会实时改变拼装结果）</label>'
+        + '<textarea class="mono" data-fkey="prompt" data-iid="' + esc(it.id) + '">'
+        + esc(it.prompt) + "</textarea></div>"
+        + '<div class="field"><label>打回改写提示词（该项命中时注入改写请求）</label>'
+        + '<textarea class="mono" data-fkey="rewrite" data-iid="' + esc(it.id) + '">'
+        + esc(it.rewrite) + "</textarea></div>"
+        + '<div class="btns"><button class="primary btn-save">保存</button>'
+        + (it.builtin ? "" : '<button class="danger btn-del">删除</button>')
+        + "</div></div></div>";
+    });
+    $("items-list").innerHTML = html;
+
+    Array.prototype.forEach.call(document.querySelectorAll(".btn-toggle"), function (btn) {
+      btn.addEventListener("click", function () {
+        var editor = btn.closest(".item").querySelector(".editor");
+        var open = editor.style.display !== "none";
+        editor.style.display = open ? "none" : "block";
+        btn.textContent = open ? "编辑" : "收起";
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".item-ck"), function (ck) {
+      ck.addEventListener("change", function () {
+        var id = ck.getAttribute("data-id");
+        request("items/save", "POST", { id: id, enabled: ck.checked }).then(function (data) {
+          state.items = data.items || state.items;
+          applyStats(data.stats);
+          toast("已" + (ck.checked ? "勾选" : "取消") + "，注入词已同步变化");
+          if ($("preview-box").style.display !== "none") { loadPreview(); }
+        }).catch(function (err) { ck.checked = !ck.checked; fail(err); });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".btn-save"), function (btn) {
+      btn.addEventListener("click", function () {
+        var card = btn.closest(".item");
+        var id = card.getAttribute("data-id");
+        var payload = { id: id };
+        var promptEl = card.querySelector('textarea[data-fkey="prompt"]');
+        var rewriteEl = card.querySelector('textarea[data-fkey="rewrite"]');
+        if (promptEl) { payload.prompt = promptEl.value; }
+        if (rewriteEl) { payload.rewrite = rewriteEl.value; }
+        var params = {};
+        var hasParam = false;
+        Array.prototype.forEach.call(card.querySelectorAll("[data-pkey]"), function (input) {
+          var key = input.getAttribute("data-pkey");
+          var type = input.getAttribute("data-ptype");
+          var value = input.value;
+          if (type === "lines") {
+            params[key] = value.split("\n").map(function (s) { return s.trim(); })
+              .filter(function (s) { return s; });
+          } else if (type === "int") {
+            params[key] = parseInt(value, 10) || 0;
+          } else if (type === "float") {
+            params[key] = parseFloat(value);
+            if (isNaN(params[key])) { params[key] = 0; }
+          } else {
+            params[key] = value;
+          }
+          hasParam = true;
+        });
+        if (hasParam) { payload.params = params; }
+        btn.disabled = true;
+        request("items/save", "POST", payload).then(function (data) {
+          state.items = data.items || state.items;
+          applyStats(data.stats);
+          toast("已保存：" + (data.item ? data.item.name : id));
+          if ($("preview-box").style.display !== "none") { loadPreview(); }
+        }).catch(fail).then(function () { btn.disabled = false; });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".btn-del"), function (btn) {
+      btn.addEventListener("click", function () {
+        var card = btn.closest(".item");
+        var id = card.getAttribute("data-id");
+        if (!window.confirm("删除这个自定义检测项？")) { return; }
+        request("items/delete", "POST", { id: id }).then(function () {
+          toast("已删除");
+          loadItems();
+        }).catch(fail);
+      });
+    });
+  }
+  function applyStats(stats) {
+    if (stats && state.status) {
+      state.status.items = stats;
+      renderStatus(state.status);
+    }
+  }
+  function loadItems() {
+    request("items", "GET").then(function (data) {
+      state.items = data.items || [];
+      renderItems();
+    }).catch(fail);
+  }
+  $("btn-add").addEventListener("click", function () {
+    var name = $("new-name").value.trim();
+    var desc = $("new-desc").value.trim();
+    if (!name) { toast("名称必填"); return; }
+    var btn = $("btn-add");
+    btn.disabled = true;
+    request("items/add", "POST", { name: name, desc: desc }).then(function (data) {
+      toast(data.auto_prompt ? "已创建，注入词与改写词已自动生成" : "已创建");
+      $("new-name").value = "";
+      $("new-desc").value = "";
+      loadItems();
+      loadPreview();
+    }).catch(fail).then(function () { btn.disabled = false; });
+  });
+  $("btn-reset").addEventListener("click", function () {
+    if (!window.confirm("内置检测项恢复出厂默认？（自定义项保留）")) { return; }
+    request("items/reset", "POST", {}).then(function (data) {
+      toast("已恢复 " + data.restored + " 个内置项");
+      loadItems();
+    }).catch(fail);
+  });
+  function loadPreview() {
+    request("prompt/preview", "GET", null, { text: $("test-input").value.trim() || "" })
+      .then(function (data) {
+        $("preview-box").style.display = "block";
+        $("preview-title").textContent =
+          "当前勾选 " + data.count + " 项（共 " + data.total + " 项）—— 勾选变化即在此变化";
+        $("preview-text").textContent = data.system + "\n\n----- 待检消息样例 -----\n" + data.prompt;
+      }).catch(fail);
+  }
+  $("btn-preview").addEventListener("click", loadPreview);
+
+  // ------------------------------------------------------------------
+  // 设置
+  // ------------------------------------------------------------------
+  function fieldHtml(field) {
+    var id = "set-" + field.path.replace(/\./g, "-");
+    var label = '<label for="' + esc(id) + '">' + esc(field.label)
+      + (field.hint ? '<span style="color:var(--dim);font-weight:400"> —— ' + esc(field.hint) + "</span>" : "")
+      + "</label>";
+    var input = "";
+    var value = field.value;
+    if (field.type === "bool" || field.type === "boolean") {
+      return '<div class="field" style="display:flex;gap:8px;align-items:center">'
+        + '<input type="checkbox" id="' + esc(id) + '" data-path="' + esc(field.path) + '" data-ptype="bool"'
+        + (value ? " checked" : "") + ' style="width:17px;height:17px;accent-color:var(--accent)">'
+        + '<label for="' + esc(id) + '" style="margin:0">' + esc(field.label)
+        + (field.hint ? '<div class="hint">' + esc(field.hint) + "</div>" : "")
+        + "</label></div>";
+    }
+    if (field.options && field.options.length) {
+      input = '<select id="' + esc(id) + '" data-path="' + esc(field.path) + '" data-ptype="str">'
+        + field.options.map(function (opt) {
+            return '<option value="' + esc(opt) + '"' + (String(value) === opt ? " selected" : "")
+              + ">" + esc(opt) + "</option>";
+          }).join("")
+        + "</select>";
+    } else if (field.type === "text") {
+      input = '<textarea id="' + esc(id) + '" data-path="' + esc(field.path) + '" data-ptype="str" rows="3">'
+        + esc(value == null ? "" : value) + "</textarea>";
+    } else if (field.type === "int" || field.type === "integer" || field.type === "float") {
+      input = '<input type="number" id="' + esc(id) + '" data-path="' + esc(field.path)
+        + '" data-ptype="' + (field.type === "float" ? "float" : "int")
+        + '" value="' + esc(value == null ? 0 : value) + '">';
+    } else {
+      input = '<input type="text" id="' + esc(id) + '" data-path="' + esc(field.path) + '" data-ptype="str"'
+        + ' value="' + esc(value == null ? "" : value) + '">';
+    }
+    return '<div class="field">' + label + input + "</div>";
+  }
+  function renderSettings(payload) {
+    var html = "";
+    (payload.groups || []).forEach(function (group) {
+      html += '<div class="sec card" style="margin-bottom:12px"><h2>' + esc(group.label) + "</h2>";
+      if (group.hint) { html += '<div class="hint">' + esc(group.hint) + "</div>"; }
+      if (group.key === "model" && payload.writable === false) { /* 无回写能力也照常展示 */ }
+      (group.fields || []).forEach(function (field) { html += fieldHtml(field); });
+      html += "</div>";
+    });
+    if (!html) { html = '<div class="hint">没有可渲染的设置。</div>'; }
+    if (payload.writable === false) {
+      html += '<div class="hint" style="color:var(--warn)">当前插件配置不支持回写，请到 AstrBot「配置」页修改。</div>';
+    }
+    $("settings-body").innerHTML = html;
+  }
+  function loadSettings() {
+    request("settings", "GET").then(function (data) {
+      state.settings = data;
+      renderSettings(data);
+    }).catch(fail);
+  }
+  $("btn-save-settings").addEventListener("click", function () {
+    var values = {};
+    Array.prototype.forEach.call($("settings-body").querySelectorAll("[data-path]"), function (input) {
+      var path = input.getAttribute("data-path");
+      var type = input.getAttribute("data-ptype");
+      if (type === "bool") { values[path] = input.checked; }
+      else if (type === "int") { values[path] = parseInt(input.value, 10) || 0; }
+      else if (type === "float") {
+        var f = parseFloat(input.value);
+        values[path] = isNaN(f) ? 0 : f;
+      } else { values[path] = input.value; }
+    });
+    var btn = $("btn-save-settings");
+    btn.disabled = true;
+    request("settings/save", "POST", { values: values }).then(function (data) {
+      renderSettings(data);
+      if (data.not_saved && data.not_saved.length) {
+        toast("有 " + data.not_saved.length + " 项没能写入，详见设置页提示");
+      } else {
+        toast("已保存 " + ((data.saved || []).length) + " 项");
+      }
+      loadStatus();
+    }).catch(fail).then(function () { btn.disabled = false; });
+  });
+
+  // ------------------------------------------------------------------
+  // 日志
+  // ------------------------------------------------------------------
+  var ACTION_LABEL = {
+    rewrite: "已改写", give_up: "改写未达标（发末版）", dry: "体检命中",
+    local: "本地公式修复（未调模型）", pass: "通过", error: "异常"
+  };
+  function fmtTime(ts) {
+    var d = new Date((ts || 0) * 1000);
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function renderLogs(entries) {
+    if (!entries || !entries.length) {
+      $("logs-list").innerHTML = '<div class="hint">还没有打回记录。</div>';
+      return;
+    }
+    var html = "";
+    entries.forEach(function (e) {
+      var viol = (e.violations || []).map(function (v) {
+        return '<div class="viol">[' + esc(v.id) + "] " + esc(v.name) + "：" + esc(v.reason) + "</div>";
+      }).join("");
+      html += '<div class="card log-item ' + esc(e.action) + '" style="margin-bottom:10px">'
+        + '<div class="row"><strong>' + esc(ACTION_LABEL[e.action] || e.action) + "</strong>"
+        + '<span class="badge soft">' + fmtTime(e.ts) + "</span>"
+        + '<span class="grow"></span>'
+        + '<span class="hint">第 ' + (e.rounds || 0) + " 轮</span></div>"
+        + '<div class="hint">会话：' + esc(e.umo) + "</div>"
+        + viol
+        + (e.unresolved ? '<div class="viol">仍违规：' + esc(e.unresolved) + "</div>" : "")
+        + (e.error ? '<div class="viol">错误：' + esc(e.error) + "</div>" : "")
+        + '<div class="hint">原文：' + esc(e.original) + "</div>"
+        + '<div class="hint">发出：' + esc(e.final) + "</div>"
+        + "</div>";
+    });
+    $("logs-list").innerHTML = html;
+  }
+  function loadLogs() {
+    request("logs", "GET", null, { limit: 50 }).then(function (data) {
+      state.logs = data.entries || [];
+      renderLogs(state.logs);
+    }).catch(fail);
+  }
+  $("btn-clear-logs").addEventListener("click", function () {
+    if (!window.confirm("清空全部打回日志？")) { return; }
+    request("logs/clear", "POST", {}).then(function () {
+      toast("已清空");
+      loadLogs();
+    }).catch(fail);
+  });
+
+  // ------------------------------------------------------------------
+  // 试跑
+  // ------------------------------------------------------------------
+  function violationsHtml(violations) {
+    if (!violations || !violations.length) {
+      return '<div class="pass">✅ 通过：没有命中任何启用的检测项</div>';
+    }
+    return '<div class="viol">🚫 命中 ' + violations.length + " 项：</div>"
+      + violations.map(function (v) {
+          return '<div class="viol">- [' + esc(v.id) + "] " + esc(v.name) + "：" + esc(v.reason) + "</div>";
+        }).join("");
+  }
+  function detectHtml(result) {
+    var html = violationsHtml(result.violations);
+    if (result.tags && result.tags.length) {
+      html += '<div class="hint">检测时已剥离标签：' + esc(result.tags.join(" ")) + "</div>";
+    }
+    var judge = result.judge || {};
+    if (judge.ran) {
+      if (judge.error) {
+        html += '<div class="hint" style="color:var(--warn)">AI 层未完成：' + esc(judge.error) + "</div>";
+      } else {
+        html += "<details><summary>AI 层原始裁决输出</summary><pre>"
+          + esc(judge.raw || "（空）") + "</pre></details>";
+        html += "<details><summary>AI 层注入词（system prompt）</summary><pre>"
+          + esc(judge.system || "") + "</pre></details>";
+      }
+    } else if (!result.judge_enabled) {
+      html += '<div class="hint">（AI 层已关闭，仅规则层）</div>';
+    }
+    return html;
+  }
+  $("btn-detect").addEventListener("click", function () {
+    var text = $("test-input").value.trim();
+    if (!text) { toast("先输入文本"); return; }
+    var btn = $("btn-detect");
+    btn.disabled = true;
+    btn.textContent = "检测中…";
+    request("test", "POST", { text: text }).then(function (data) {
+      $("test-result").innerHTML = detectHtml(data);
+    }).catch(fail).then(function () {
+      btn.disabled = false;
+      btn.textContent = "检测";
+    });
+  });
+  $("btn-rewrite").addEventListener("click", function () {
+    var text = $("test-input").value.trim();
+    if (!text) { toast("先输入文本"); return; }
+    var btn = $("btn-rewrite");
+    btn.disabled = true;
+    btn.textContent = "改写中…";
+    request("rewrite_test", "POST", { text: text }).then(function (data) {
+      var html = "<h2 style='font-size:14px'>① 检测</h2>" + detectHtml(data.detect);
+      if (data.detect && data.detect.passed) {
+        html += '<div class="hint">没有命中，无需改写。</div>';
+      } else if (data.error) {
+        html += '<div class="viol">改写失败：' + esc(data.error) + "</div>";
+      } else {
+        html += "<h2 style='font-size:14px;margin-top:12px'>② 改写结果</h2>"
+          + "<pre>" + esc(data.rewritten || "") + "</pre>";
+        if (data.recheck) {
+          html += "<h2 style='font-size:14px'>③ 复检（只对比上一句）</h2>" + detectHtml(data.recheck);
+        }
+      }
+      $("test-result").innerHTML = html;
+    }).catch(fail).then(function () {
+      btn.disabled = false;
+      btn.textContent = "检测并试改写";
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 初始化
+  // ------------------------------------------------------------------
+  loadStatus();
+  loadItems();
+  loadSettings();
+  loadLogs();
+})();
+</script>
+</body>
+</html>

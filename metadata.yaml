@@ -1,0 +1,10 @@
+name: astrbot_plugin_humanize_guard
+display_name: 人味守卫 · 消息质检与打回改写
+short_desc: 拦截AI回复质检，命中即打回并按检测项注入改写提示词
+desc: 拦截 AI 即将发出的回复做质检，命中即打回，并按检测项拼装改写提示词督促模型重写，复检通过才发出。好感度等标签检测时剥离、改写后原样加回。命中的小问题优先用本地公式直接修好，零模型调用更省更快。
+version: v1.0.0
+author: workspace
+astrbot_version: ">=4.5,<5"
+pages:
+  - name: console
+    title: 质检面板

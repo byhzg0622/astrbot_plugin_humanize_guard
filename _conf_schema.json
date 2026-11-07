@@ -1,0 +1,202 @@
+{
+  "enabled": {
+    "description": "总开关",
+    "type": "bool",
+    "default": true,
+    "hint": "关闭后本插件完全不介入：不检测、不打回、不注入反馈；历史与日志仍保留可查。"
+  },
+  "detect": {
+    "description": "检测",
+    "type": "object",
+    "hint": "两层检测：规则层由代码判定（毫秒级、零成本），AI 层把启用检测项的注入词拼成提示词发给模型裁决。",
+    "items": {
+      "enable_rules": {
+        "description": "启用规则层（代码判定）",
+        "type": "bool",
+        "default": true,
+        "hint": "句中缺标点、句末句号、重合、相同开头结尾等由代码直接判定，不花 token。"
+      },
+      "enable_judge": {
+        "description": "启用 AI 检测层（模型裁决）",
+        "type": "bool",
+        "default": true,
+        "hint": "把启用检测项的注入词发给模型判断，每条回复 +1 次模型调用；关掉则只跑规则层。"
+      },
+      "judge_when_rules_fail": {
+        "description": "规则已命中时仍跑 AI 检测",
+        "type": "bool",
+        "default": false,
+        "hint": "规则层已经打回时反正要改写，再花一次 AI 检测只多不少；打开后改写会带上 AI 层的理由。"
+      },
+      "skip_below": {
+        "description": "短于 N 字的回复直接放行",
+        "type": "int",
+        "default": 4,
+        "hint": "一个字的“嗯”“好”没什么可检的，短消息跳过省调用（仍会记入历史供后续比对）。"
+      }
+    }
+  },
+  "lists": {
+    "description": "黑白名单",
+    "type": "object",
+    "hint": "每行一个（也支持逗号分隔）。条目可写：完整会话 ID、群号/QQ号 或 发送者 ID。群号按会话尾段及其分段比对——AstrBot 开启『唯一会话』时会话 ID 形如 发送者_群号，裸群号同样命中。黑名单优先于白名单。",
+    "items": {
+      "blacklist": {
+        "description": "黑名单（免检名单）",
+        "type": "text",
+        "default": "",
+        "hint": "名单内的会话/用户永不质检：不检测、不打回、原样放行。适合管理员会话、特批会话。"
+      },
+      "whitelist": {
+        "description": "白名单（质检名单）",
+        "type": "text",
+        "default": "",
+        "hint": "配合下方“白名单模式”使用：开启后只有名单内的会话才质检，其余一律放行。适合调阈值期间灰度测试。"
+      },
+      "whitelist_mode": {
+        "description": "启用白名单模式",
+        "type": "bool",
+        "default": false,
+        "hint": "关闭（默认）：除黑名单外全部质检；开启：只检白名单（黑名单仍然豁免，名单为空则全部放行）。"
+      }
+    }
+  },
+  "model": {
+    "description": "检测与改写模型",
+    "type": "object",
+    "hint": "AI 检测层与打回改写共用这一处的模型选择。",
+    "items": {
+      "mode": {
+        "description": "用哪个模型",
+        "type": "string",
+        "options": ["session", "custom"],
+        "default": "session",
+        "hint": "session = 跟随当前会话在用的模型；custom = 指定 provider_id（建议选便宜快的模型）。"
+      },
+      "provider_id": {
+        "description": "指定 Provider ID",
+        "type": "string",
+        "default": "",
+        "hint": "mode=custom 时生效，留空自动回落到会话模型。"
+      },
+      "timeout_seconds": {
+        "description": "单次调用超时（秒）",
+        "type": "float",
+        "default": 12.0,
+        "hint": "检测或改写超时则放弃本次质检（fail-open，原样发出），不会卡死回复。"
+      }
+    }
+  },
+  "rewrite": {
+    "description": "打回改写",
+    "type": "object",
+    "hint": "命中的问题优先由本地公式直接修好（0 次模型调用）；本地修不掉的才交给 AI 改写。",
+    "items": {
+      "fast_fix": {
+        "description": "本地公式修复（省 AI 调用）",
+        "type": "bool",
+        "default": true,
+        "hint": "句末句号、连发标点、残留字符、Markdown 排版、缺标点断句、重复语气词结尾、本条重复句、套话/书面语清单……这些用确定性规则就能改好，本地直接改、不再调用模型；规则改不好的（与上一句重合、复述用户、整体 AI 味、自定义项）才落到 AI 改写。每个补丁都要过一遍规则复检，只采纳“违规变少且不新增违规”的补丁。"
+      },
+      "recheck_judge": {
+        "description": "改写后再用 AI 复检",
+        "type": "bool",
+        "default": false,
+        "hint": "关（推荐）：改写稿只用规则层复检，省掉每轮一次模型调用；开：每轮改写后再问一次模型，更严但更慢。"
+      },
+      "max_rounds": {
+        "description": "最多打回改写几轮",
+        "type": "int",
+        "default": 2,
+        "hint": "改写后要复检（只对比上一句，不看改写前的草稿）；到轮数上限仍未通过就发最后一版，绝不吞消息。"
+      },
+      "dry_run": {
+        "description": "体检模式：只检测记录，不改写",
+        "type": "bool",
+        "default": false,
+        "hint": "调阈值用：命中只写日志，原稿照发。"
+      }
+    }
+  },
+  "segment": {
+    "description": "分段插件兼容",
+    "type": "object",
+    "hint": "对话分段Pro 这类插件会把一条回复切成多条发出，还会直接调 send_message / send_by_session，绕过装饰钩子。开启后：①主动发送先按“整条”质检，再交给它切分；②切出来的碎片不再逐段重复质检。既能拿回完整句子，又能省掉每段一次的模型调用。",
+    "items": {
+      "wrap_context_send": {
+        "description": "主动发送先按整条质检",
+        "type": "bool",
+        "default": true,
+        "hint": "接管 Context.send_message：主动消息（proactive_chat 等）在被分段之前先走一遍质检，检测和改写都按完整消息进行。幂等、可还原，异常一律放行原消息。"
+      },
+      "dedup": {
+        "description": "分段碎片不再重复质检",
+        "type": "bool",
+        "default": true,
+        "hint": "刚质检过的整条消息会被记一小会儿；随后分段插件逐段发出的碎片（整条的子串）直接放行——不重复质检、不写历史，避免“半句话”被判违规、也避免每段一次 AI 调用。"
+      },
+      "dedup_window": {
+        "description": "碎片识别时间窗（秒）",
+        "type": "int",
+        "default": 60,
+        "hint": "超过这个时间就不再认为是同一轮分段的碎片。分段间隔通常 0.3~3 秒，60 秒足够覆盖最慢的分段节奏；调小可以进一步降低“新消息恰好是刚发内容的子串而被跳过”的概率。"
+      }
+    }
+  },
+  "feedback": {
+    "description": "下轮反馈注入",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "把上一轮打回原因注入下一轮提示词",
+        "type": "bool",
+        "default": true,
+        "hint": "本轮被打回后，下一次请求 LLM 时附一句“上一条被打回，原因X”，让模型自己越说越像人（可与独立改写叠加）。"
+      }
+    }
+  },
+  "history": {
+    "description": "历史",
+    "type": "object",
+    "hint": "重合与相同开头结尾的比对基准：只存每轮最终发出的版本，改写前的草稿从不入史。",
+    "items": {
+      "keep_k": {
+        "description": "记住最近几条",
+        "type": "int",
+        "default": 5,
+        "hint": "相同开头/结尾在最近 K 条里命中 2 次即打回（可按检测项参数细调）。"
+      },
+      "persist": {
+        "description": "重启后仍保留历史",
+        "type": "bool",
+        "default": true,
+        "hint": "落盘到插件数据目录 history.json；关闭则仅本次运行内有效。"
+      }
+    }
+  },
+  "tags": {
+    "description": "标签剥离",
+    "type": "object",
+    "hint": "好感度等重复性标签：检测时剥离（不参与任何比对），改写完成后原样加回。",
+    "items": {
+      "patterns": {
+        "description": "额外的标签正则（每行一个）",
+        "type": "text",
+        "default": "",
+        "hint": "在内置模式之外追加，例如你的机器人特有标签格式；只在检测时忽略，发送文本不受影响。"
+      }
+    }
+  },
+  "debug": {
+    "description": "调试",
+    "type": "object",
+    "items": {
+      "debug_log": {
+        "description": "详细日志",
+        "type": "bool",
+        "default": false,
+        "hint": "在日志里打印每次检测的裁决、注入词与改写原文，排查误杀用；会增加日志量。"
+      }
+    }
+  }
+}
