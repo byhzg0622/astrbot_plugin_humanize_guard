@@ -1,0 +1,2 @@
+# astrbot_plugin_humanize_guard
+使一些掺水免费api的非人类输出更像人的astrbot插件，加入内置的相似度测定与标点缺失判定，不合格先调用内部指令，无法修改后再丢给api自己改，最大限度降低发送延迟
